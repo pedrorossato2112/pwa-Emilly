@@ -6,15 +6,77 @@
   <meta name="theme-color" content="#ff4d6d" />
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
-  <title>Para a Emilly ❤️</title>
+  <title>Nosso Álbum ❤️</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <main class="app">
-    <h1>Para a Emilly ❤️</h1>
-    <p id="msg">Seu app já está funcionando.</p>
-    <button id="btn">Trocar mensagem</button>
+  <header class="top">
+    <div class="brand">
+      <div class="dot"></div>
+      <div>
+        <div class="title">Nosso Álbum</div>
+        <div class="sub">fotos & cartinhas ❤️</div>
+      </div>
+    </div>
+
+    <nav class="tabs">
+      <button class="tab active" data-tab="album">Álbum</button>
+      <button class="tab" data-tab="cartas">Cartinhas</button>
+      <button class="tab" data-tab="backup">Backup</button>
+    </nav>
+  </header>
+
+  <main class="wrap">
+    <section class="panel active" id="panel-album">
+      <div class="card">
+        <div class="row">
+          <div>
+            <div class="h">Adicionar fotos</div>
+            <div class="p">Fica salvo no aparelho. Vocês podem usar Backup pra compartilhar.</div>
+          </div>
+          <label class="btn">
+            + Selecionar
+            <input id="photoInput" type="file" accept="image/*" multiple />
+          </label>
+        </div>
+      </div>
+
+      <div class="grid" id="photoGrid"></div>
+      <div class="empty" id="emptyPhotos">Sem fotos ainda. Adicione a primeira ❤️</div>
+    </section>
+
+    <section class="panel" id="panel-cartas">
+      <div class="card">
+        <div class="h">Escrever cartinha</div>
+        <div class="form">
+          <input id="letterTo" class="inp" placeholder="Para: (Emilly / Pedro)" />
+          <input id="letterTitle" class="inp" placeholder="Título" />
+          <textarea id="letterBody" class="inp area" placeholder="Escreve aqui..."></textarea>
+          <button id="addLetterBtn" class="btn solid">Salvar cartinha</button>
+        </div>
+      </div>
+
+      <div class="list" id="letterList"></div>
+      <div class="empty" id="emptyLetters">Sem cartinhas ainda. Escreve a primeira 😶‍🌫️❤️</div>
+    </section>
+
+    <section class="panel" id="panel-backup">
+      <div class="card">
+        <div class="h">Backup</div>
+        <div class="p">Exporta tudo (fotos + cartinhas) num arquivo e importa no outro aparelho.</div>
+        <div class="row">
+          <button id="exportBtn" class="btn solid">Exportar backup</button>
+          <label class="btn">
+            Importar backup
+            <input id="importInput" type="file" accept="application/json" />
+          </label>
+          <button id="wipeBtn" class="btn danger">Apagar tudo</button>
+        </div>
+        <div class="note" id="backupNote"></div>
+      </div>
+    </section>
   </main>
+
   <script src="app.js"></script>
 </body>
 </html>

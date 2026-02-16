@@ -1,4 +1,4 @@
-const CACHE = "emilly-pwa-v1";
+const CACHE = "album-pwa-v1";
 const ASSETS = ["./", "./index.html", "./style.css", "./app.js", "./manifest.webmanifest"];
 
 self.addEventListener("install", (e) => {
