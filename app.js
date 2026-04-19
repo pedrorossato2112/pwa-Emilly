@@ -26,7 +26,7 @@ function fmtDate(ms) {
   return d.toLocaleDateString("pt-BR");
 }
 
-// ==================== FIREBASE IMPORT ====================
+// ==================== FIREBASE ====================
 
 import {
   collection,
@@ -35,8 +35,6 @@ import {
   query,
   orderBy
 } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js";
-
-// ==================== HELPERS ====================
 
 function firebaseAdd(col, data) {
   return addDoc(collection(db, col), data);
@@ -51,10 +49,39 @@ function firebaseListen(col, callback) {
   });
 }
 
-function fileToBase64(file) {
+// ==================== COMPRESSÃO DE IMAGEM ====================
+
+function compressImage(file, maxWidth = 800, quality = 0.7) {
   return new Promise((resolve, reject) => {
+    const img = new Image();
     const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
+
+    reader.onload = (e) => {
+      img.src = e.target.result;
+    };
+
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+
+      let width = img.width;
+      let height = img.height;
+
+      if (width > maxWidth) {
+        const scale = maxWidth / width;
+        width = maxWidth;
+        height = height * scale;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, width, height);
+
+      const compressed = canvas.toDataURL("image/jpeg", quality);
+      resolve(compressed);
+    };
+
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
@@ -71,7 +98,7 @@ photoInput.addEventListener("change", async () => {
   if (!files.length) return;
 
   for (const file of files) {
-    const base64 = await fileToBase64(file);
+    const base64 = await compressImage(file);
 
     await firebaseAdd("fotos", {
       url: base64,
