@@ -1,6 +1,6 @@
 {
   "name": "Nosso Álbum",
-  "short_name": "Álbum ❤️",
+  "short_name": "Álbum",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#0b0b10",
