@@ -18,76 +18,49 @@ tabs.forEach((b) => {
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js");
 
-const DB_NAME = "album_emilly";
-const DB_VER = 1;
-
-function openDB() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, DB_VER);
-    req.onupgradeneeded = () => {
-      const db = req.result;
-      if (!db.objectStoreNames.contains("photos")) db.createObjectStore("photos", { keyPath: "id" });
-      if (!db.objectStoreNames.contains("letters")) db.createObjectStore("letters", { keyPath: "id" });
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-function tx(db, store, mode = "readonly") {
-  return db.transaction(store, mode).objectStore(store);
-}
-
-function id() {
-  return crypto.randomUUID ? crypto.randomUUID() : (Date.now() + "-" + Math.random().toString(16).slice(2));
-}
-
-function fileToDataURL(file) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(String(r.result));
-    r.onerror = () => reject(r.error);
-    r.readAsDataURL(file);
-  });
-}
-
-async function addPhotoFromFile(file) {
-  const dataUrl = await fileToDataURL(file);
-  const db = await openDB();
-  const item = { id: id(), dataUrl, createdAt: Date.now() };
-  await new Promise((res, rej) => {
-    const r = tx(db, "photos", "readwrite").add(item);
-    r.onsuccess = () => res();
-    r.onerror = () => rej(r.error);
-  });
-  db.close();
-}
-
-async function getAll(store) {
-  const db = await openDB();
-  const items = await new Promise((res, rej) => {
-    const r = tx(db, store).getAll();
-    r.onsuccess = () => res(r.result || []);
-    r.onerror = () => rej(r.error);
-  });
-  db.close();
-  return items;
-}
-
-async function del(store, key) {
-  const db = await openDB();
-  await new Promise((res, rej) => {
-    const r = tx(db, store, "readwrite").delete(key);
-    r.onsuccess = () => res();
-    r.onerror = () => rej(r.error);
-  });
-  db.close();
-}
+// FIREBASE
+const db = window.db;
 
 function fmtDate(ms) {
   const d = new Date(ms);
-  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return d.toLocaleDateString("pt-BR");
 }
+
+// ==================== FIREBASE IMPORT ====================
+
+import {
+  collection,
+  addDoc,
+  onSnapshot,
+  query,
+  orderBy
+} from "https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js";
+
+// ==================== HELPERS ====================
+
+function firebaseAdd(col, data) {
+  return addDoc(collection(db, col), data);
+}
+
+function firebaseListen(col, callback) {
+  const q = query(collection(db, col), orderBy("createdAt", "desc"));
+  onSnapshot(q, (snapshot) => {
+    const docs = [];
+    snapshot.forEach((doc) => docs.push(doc.data()));
+    callback(docs);
+  });
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// ==================== FOTOS ====================
 
 const photoInput = $("#photoInput");
 const photoGrid = $("#photoGrid");
@@ -96,36 +69,45 @@ const emptyPhotos = $("#emptyPhotos");
 photoInput.addEventListener("change", async () => {
   const files = Array.from(photoInput.files || []);
   if (!files.length) return;
-  for (const f of files) await addPhotoFromFile(f);
-  photoInput.value = "";
-  await renderPhotos();
-});
 
-async function renderPhotos() {
-  const photos = (await getAll("photos")).sort((a, b) => b.createdAt - a.createdAt);
-  photoGrid.innerHTML = "";
-  emptyPhotos.style.display = photos.length ? "none" : "block";
+  for (const file of files) {
+    const base64 = await fileToBase64(file);
 
-  for (const p of photos) {
-    const card = document.createElement("div");
-    card.className = "photo";
-    card.innerHTML = `
-      <img src="${p.dataUrl}" alt="foto" />
-      <div class="meta">
-        <div class="pill">${fmtDate(p.createdAt)}</div>
-        <button class="iconBtn" data-del="${p.id}">Remover</button>
-      </div>
-    `;
-    photoGrid.appendChild(card);
+    await firebaseAdd("fotos", {
+      url: base64,
+      createdAt: Date.now()
+    });
   }
 
-  photoGrid.querySelectorAll("[data-del]").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      await del("photos", btn.getAttribute("data-del"));
-      await renderPhotos();
+  photoInput.value = "";
+});
+
+function renderPhotosRealtime() {
+  firebaseListen("fotos", (docs) => {
+    photoGrid.innerHTML = "";
+
+    if (!docs.length) {
+      emptyPhotos.style.display = "block";
+      return;
+    }
+
+    emptyPhotos.style.display = "none";
+
+    docs.forEach((p) => {
+      const card = document.createElement("div");
+      card.className = "photo";
+      card.innerHTML = `
+        <img src="${p.url}" />
+        <div class="meta">
+          <div class="pill">${fmtDate(p.createdAt)}</div>
+        </div>
+      `;
+      photoGrid.appendChild(card);
     });
   });
 }
+
+// ==================== CARTAS ====================
 
 const letterTo = $("#letterTo");
 const letterTitle = $("#letterTitle");
@@ -140,122 +122,47 @@ addLetterBtn.addEventListener("click", async () => {
   const body = letterBody.value.trim();
   if (!title || !body) return;
 
-  const db = await openDB();
-  const item = { id: id(), to, title, body, createdAt: Date.now() };
-  await new Promise((res, rej) => {
-    const r = tx(db, "letters", "readwrite").add(item);
-    r.onsuccess = () => res();
-    r.onerror = () => rej(r.error);
+  await firebaseAdd("cartas", {
+    to,
+    title,
+    body,
+    createdAt: Date.now()
   });
-  db.close();
 
   letterTo.value = "";
   letterTitle.value = "";
   letterBody.value = "";
-  await renderLetters();
 });
 
-async function renderLetters() {
-  const letters = (await getAll("letters")).sort((a, b) => b.createdAt - a.createdAt);
-  letterList.innerHTML = "";
-  emptyLetters.style.display = letters.length ? "none" : "block";
+function renderLettersRealtime() {
+  firebaseListen("cartas", (docs) => {
+    letterList.innerHTML = "";
 
-  for (const l of letters) {
-    const el = document.createElement("div");
-    el.className = "letter";
-    el.innerHTML = `
-      <div class="toprow">
-        <div>
-          <div class="t">${escapeHtml(l.title)}</div>
-          <div class="s">${(l.to ? "Para: " + escapeHtml(l.to) + " • " : "")}${fmtDate(l.createdAt)}</div>
+    if (!docs.length) {
+      emptyLetters.style.display = "block";
+      return;
+    }
+
+    emptyLetters.style.display = "none";
+
+    docs.forEach((l) => {
+      const el = document.createElement("div");
+      el.className = "letter";
+      el.innerHTML = `
+        <div class="toprow">
+          <div>
+            <div class="t">${l.title}</div>
+            <div class="s">${l.to ? "Para: " + l.to + " • " : ""}${fmtDate(l.createdAt)}</div>
+          </div>
         </div>
-        <button class="iconBtn" data-del-letter="${l.id}">Remover</button>
-      </div>
-      <div class="b">${escapeHtml(l.body)}</div>
-    `;
-    letterList.appendChild(el);
-  }
-
-  letterList.querySelectorAll("[data-del-letter]").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      await del("letters", btn.getAttribute("data-del-letter"));
-      await renderLetters();
+        <div class="b">${l.body}</div>
+      `;
+      letterList.appendChild(el);
     });
   });
 }
 
-function escapeHtml(s) {
-  return String(s)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
+// ==================== INIT ====================
 
-const exportBtn = $("#exportBtn");
-const importInput = $("#importInput");
-const wipeBtn = $("#wipeBtn");
-const backupNote = $("#backupNote");
-
-exportBtn.addEventListener("click", async () => {
-  const photos = await getAll("photos");
-  const letters = await getAll("letters");
-  const payload = { v: 1, createdAt: Date.now(), photos, letters };
-  const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "backup-nosso-album.json";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-  backupNote.textContent = "Backup exportado. Envie o arquivo pra outra pessoa e importe lá.";
-});
-
-importInput.addEventListener("change", async () => {
-  const f = (importInput.files || [])[0];
-  if (!f) return;
-  const text = await f.text();
-  let data;
-  try { data = JSON.parse(text); } catch { backupNote.textContent = "Arquivo inválido."; importInput.value = ""; return; }
-  if (!data || !Array.isArray(data.photos) || !Array.isArray(data.letters)) { backupNote.textContent = "Backup inválido."; importInput.value = ""; return; }
-
-  const db = await openDB();
-  await new Promise((res, rej) => {
-    const t = db.transaction(["photos", "letters"], "readwrite");
-    const sp = t.objectStore("photos");
-    const sl = t.objectStore("letters");
-    for (const p of data.photos) sp.put(p);
-    for (const l of data.letters) sl.put(l);
-    t.oncomplete = () => res();
-    t.onerror = () => rej(t.error);
-  });
-  db.close();
-
-  importInput.value = "";
-  backupNote.textContent = "Backup importado com sucesso.";
-  await renderPhotos();
-  await renderLetters();
-});
-
-wipeBtn.addEventListener("click", async () => {
-  const ok = confirm("Tem certeza que quer apagar TUDO (fotos e cartinhas) deste aparelho?");
-  if (!ok) return;
-  const db = await openDB();
-  await new Promise((res, rej) => {
-    const t = db.transaction(["photos", "letters"], "readwrite");
-    t.objectStore("photos").clear();
-    t.objectStore("letters").clear();
-    t.oncomplete = () => res();
-    t.onerror = () => rej(t.error);
-  });
-  db.close();
-  backupNote.textContent = "Tudo apagado neste aparelho.";
-  await renderPhotos();
-  await renderLetters();
-});
-
-renderPhotos();
-renderLetters();
+renderPhotosRealtime();
+renderLettersRealtime();
