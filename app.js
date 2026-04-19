@@ -1,6 +1,26 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-app.js";
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  onSnapshot,
+  query,
+  orderBy
+} from "https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDxlNiBEj9V0lU-EyiNRwPiK2B9tWee6Bg",
+  authDomain: "nosso-mundo-6eb7a.firebaseapp.com",
+  projectId: "nosso-mundo-6eb7a"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
 const $ = (s) => document.querySelector(s);
 
-const tabs = Array.from(document.querySelectorAll(".tab"));
+// TABS
+const tabs = document.querySelectorAll(".tab");
 const panels = {
   album: $("#panel-album"),
   cartas: $("#panel-cartas"),
@@ -16,143 +36,100 @@ tabs.forEach((b) => {
   });
 });
 
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js");
-
-// FIREBASE
-const db = window.db;
-
+// DATA
 function fmtDate(ms) {
-  const d = new Date(ms);
-  return d.toLocaleDateString("pt-BR");
+  return new Date(ms).toLocaleDateString("pt-BR");
 }
 
-// ==================== FIREBASE ====================
-
-import {
-  collection,
-  addDoc,
-  onSnapshot,
-  query,
-  orderBy
-} from "https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js";
-
-function firebaseAdd(col, data) {
-  return addDoc(collection(db, col), data);
-}
-
-function firebaseListen(col, callback) {
-  const q = query(collection(db, col), orderBy("createdAt", "desc"));
-  onSnapshot(q, (snapshot) => {
-    const docs = [];
-    snapshot.forEach((doc) => docs.push(doc.data()));
-    callback(docs);
-  });
-}
-
-// ==================== COMPRESSÃO DE IMAGEM ====================
-
+// COMPRESSÃO
 function compressImage(file, maxWidth = 800, quality = 0.7) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const img = new Image();
     const reader = new FileReader();
 
-    reader.onload = (e) => {
-      img.src = e.target.result;
-    };
+    reader.onload = (e) => img.src = e.target.result;
 
     img.onload = () => {
       const canvas = document.createElement("canvas");
 
-      let width = img.width;
-      let height = img.height;
+      let w = img.width;
+      let h = img.height;
 
-      if (width > maxWidth) {
-        const scale = maxWidth / width;
-        width = maxWidth;
-        height = height * scale;
+      if (w > maxWidth) {
+        const scale = maxWidth / w;
+        w = maxWidth;
+        h *= scale;
       }
 
-      canvas.width = width;
-      canvas.height = height;
+      canvas.width = w;
+      canvas.height = h;
 
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(img, 0, 0, width, height);
-
-      const compressed = canvas.toDataURL("image/jpeg", quality);
-      resolve(compressed);
+      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL("image/jpeg", quality));
     };
 
-    reader.onerror = reject;
     reader.readAsDataURL(file);
   });
 }
 
-// ==================== FOTOS ====================
-
+// FOTOS
 const photoInput = $("#photoInput");
 const photoGrid = $("#photoGrid");
 const emptyPhotos = $("#emptyPhotos");
 
 photoInput.addEventListener("change", async () => {
   const files = Array.from(photoInput.files || []);
-  if (!files.length) return;
 
   for (const file of files) {
     const base64 = await compressImage(file);
 
-    await firebaseAdd("fotos", {
+    await addDoc(collection(db, "fotos"), {
       url: base64,
       createdAt: Date.now()
     });
   }
-
-  photoInput.value = "";
 });
 
-function renderPhotosRealtime() {
-  firebaseListen("fotos", (docs) => {
-    photoGrid.innerHTML = "";
+onSnapshot(query(collection(db, "fotos"), orderBy("createdAt", "desc")), (snap) => {
+  photoGrid.innerHTML = "";
 
-    if (!docs.length) {
-      emptyPhotos.style.display = "block";
-      return;
-    }
+  if (snap.empty) {
+    emptyPhotos.style.display = "block";
+    return;
+  }
 
-    emptyPhotos.style.display = "none";
+  emptyPhotos.style.display = "none";
 
-    docs.forEach((p) => {
-      const card = document.createElement("div");
-      card.className = "photo";
-      card.innerHTML = `
-        <img src="${p.url}" />
-        <div class="meta">
-          <div class="pill">${fmtDate(p.createdAt)}</div>
-        </div>
-      `;
-      photoGrid.appendChild(card);
-    });
+  snap.forEach(doc => {
+    const p = doc.data();
+
+    const el = document.createElement("div");
+    el.className = "photo";
+    el.innerHTML = `
+      <img src="${p.url}">
+      <div class="meta">
+        <div class="pill">${fmtDate(p.createdAt)}</div>
+      </div>
+    `;
+
+    photoGrid.appendChild(el);
   });
-}
+});
 
-// ==================== CARTAS ====================
-
+// CARTAS
 const letterTo = $("#letterTo");
 const letterTitle = $("#letterTitle");
 const letterBody = $("#letterBody");
 const addLetterBtn = $("#addLetterBtn");
 const letterList = $("#letterList");
-const emptyLetters = $("#emptyLetters");
 
 addLetterBtn.addEventListener("click", async () => {
-  const to = letterTo.value.trim();
-  const title = letterTitle.value.trim();
-  const body = letterBody.value.trim();
-  if (!title || !body) return;
+  if (!letterTitle.value || !letterBody.value) return;
 
-  await firebaseAdd("cartas", {
-    to,
-    title,
-    body,
+  await addDoc(collection(db, "cartas"), {
+    to: letterTo.value,
+    title: letterTitle.value,
+    body: letterBody.value,
     createdAt: Date.now()
   });
 
@@ -161,35 +138,20 @@ addLetterBtn.addEventListener("click", async () => {
   letterBody.value = "";
 });
 
-function renderLettersRealtime() {
-  firebaseListen("cartas", (docs) => {
-    letterList.innerHTML = "";
+onSnapshot(query(collection(db, "cartas"), orderBy("createdAt", "desc")), (snap) => {
+  letterList.innerHTML = "";
 
-    if (!docs.length) {
-      emptyLetters.style.display = "block";
-      return;
-    }
+  snap.forEach(doc => {
+    const l = doc.data();
 
-    emptyLetters.style.display = "none";
+    const el = document.createElement("div");
+    el.className = "letter";
+    el.innerHTML = `
+      <div class="t">${l.title}</div>
+      <div class="s">${l.to || ""} • ${fmtDate(l.createdAt)}</div>
+      <div class="b">${l.body}</div>
+    `;
 
-    docs.forEach((l) => {
-      const el = document.createElement("div");
-      el.className = "letter";
-      el.innerHTML = `
-        <div class="toprow">
-          <div>
-            <div class="t">${l.title}</div>
-            <div class="s">${l.to ? "Para: " + l.to + " • " : ""}${fmtDate(l.createdAt)}</div>
-          </div>
-        </div>
-        <div class="b">${l.body}</div>
-      `;
-      letterList.appendChild(el);
-    });
+    letterList.appendChild(el);
   });
-}
-
-// ==================== INIT ====================
-
-renderPhotosRealtime();
-renderLettersRealtime();
+});

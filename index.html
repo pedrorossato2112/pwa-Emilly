@@ -4,103 +4,78 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#ff4d6d" />
-  <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+
   <title>Nosso Álbum ❤️</title>
+
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header class="top">
-    <div class="brand">
-      <div class="dot"></div>
-      <div>
-        <div class="title">Nosso Álbum</div>
-        <div class="sub">fotos & cartinhas ❤️</div>
+
+<header class="top">
+  <div class="brand">
+    <div class="dot"></div>
+    <div>
+      <div class="title">Nosso Álbum</div>
+      <div class="sub">fotos & cartinhas ❤️</div>
+    </div>
+  </div>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="album">Álbum</button>
+    <button class="tab" data-tab="cartas">Cartinhas</button>
+    <button class="tab" data-tab="backup">Backup</button>
+  </nav>
+</header>
+
+<main class="wrap">
+
+  <!-- ÁLBUM -->
+  <section class="panel active" id="panel-album">
+    <div class="card">
+      <div class="row">
+        <div>
+          <div class="h">Adicionar fotos</div>
+        </div>
+
+        <label class="btn">
+          + Selecionar
+          <input id="photoInput" type="file" accept="image/*" multiple />
+        </label>
       </div>
     </div>
 
-    <nav class="tabs">
-      <button class="tab active" data-tab="album">Álbum</button>
-      <button class="tab" data-tab="cartas">Cartinhas</button>
-      <button class="tab" data-tab="backup">Backup</button>
-    </nav>
-  </header>
+    <div class="grid" id="photoGrid"></div>
+    <div class="empty" id="emptyPhotos">Sem fotos ainda ❤️</div>
+  </section>
 
-  <main class="wrap">
-    <section class="panel active" id="panel-album">
-      <div class="card">
-        <div class="row">
-          <div>
-            <div class="h">Adicionar fotos</div>
-            <div class="p">Fica salvo no aparelho. Vocês podem usar Backup pra compartilhar.</div>
-          </div>
-          <label class="btn">
-            + Selecionar
-            <input id="photoInput" type="file" accept="image/*" multiple />
-          </label>
-        </div>
-      </div>
+  <!-- CARTAS -->
+  <section class="panel" id="panel-cartas">
+    <div class="card">
+      <div class="h">Cartinhas</div>
 
-      <div class="grid" id="photoGrid"></div>
-      <div class="empty" id="emptyPhotos">Sem fotos ainda. Adicione a primeira ❤️</div>
-    </section>
+      <input id="letterTo" class="inp" placeholder="Para (Emilly / Pedro)" />
+      <input id="letterTitle" class="inp" placeholder="Título" />
+      <textarea id="letterBody" class="inp area" placeholder="Escreve aqui..."></textarea>
 
-    <section class="panel" id="panel-cartas">
-      <div class="card">
-        <div class="h">Escrever cartinha</div>
-        <div class="form">
-          <input id="letterTo" class="inp" placeholder="Para: (Emilly / Pedro)" />
-          <input id="letterTitle" class="inp" placeholder="Título" />
-          <textarea id="letterBody" class="inp area" placeholder="Escreve aqui..."></textarea>
-          <button id="addLetterBtn" class="btn solid">Salvar cartinha</button>
-        </div>
-      </div>
+      <button id="addLetterBtn" class="btn solid">Salvar cartinha</button>
+    </div>
 
-      <div class="list" id="letterList"></div>
-      <div class="empty" id="emptyLetters">Sem cartinhas ainda. Escreve a primeira 😶‍🌫️❤️</div>
-    </section>
+    <div class="list" id="letterList"></div>
+    <div class="empty" id="emptyLetters">Sem cartinhas ainda ❤️</div>
+  </section>
 
-    <section class="panel" id="panel-backup">
-      <div class="card">
-        <div class="h">Backup</div>
-        <div class="p">Exporta tudo (fotos + cartinhas) num arquivo e importa no outro aparelho.</div>
-        <div class="row">
-          <button id="exportBtn" class="btn solid">Exportar backup</button>
-          <label class="btn">
-            Importar backup
-            <input id="importInput" type="file" accept="application/json" />
-          </label>
-          <button id="wipeBtn" class="btn danger">Apagar tudo</button>
-        </div>
-        <div class="note" id="backupNote"></div>
-      </div>
-    </section>
-  </main>
+  <!-- BACKUP (opcional, não conectado ao Firebase agora) -->
+  <section class="panel" id="panel-backup">
+    <div class="card">
+      <div class="h">Backup</div>
+      <div class="p">Essa parte você pode usar depois se quiser.</div>
+    </div>
+  </section>
 
-  <script src="app.js"></script>
+</main>
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-app.js";
-import { getFirestore } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js";
-import { getStorage } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-storage.js";
+<!-- 🔥 IMPORTANTE: APP COMO MODULE -->
+<script type="module" src="app.js"></script>
 
-const firebaseConfig = {
-    apiKey: "AIzaSyDxlNiBEj9V0lU-EyiNRwPiK2B9tWee6Bg",
-    authDomain: "nosso-mundo-6eb7a.firebaseapp.com",
-    projectId: "nosso-mundo-6eb7a",
-    storageBucket: "nosso-mundo-6eb7a.firebasestorage.app",
-    messagingSenderId: "283302161048",
-    appId: "1:283302161048:web:e64caedd7a9e6358aa3eed",
-    measurementId: "G-TCQY1SM1F8"
-  };
-
-const app = initializeApp(firebaseConfig);
-
-// 👇 ISSO É O MAIS IMPORTANTE
-window.db = getFirestore(app);
-window.storage = getStorage(app);
-</script>
-
-</script>
 </body>
 </html>
